@@ -1,1 +1,4 @@
-mydata/
+__pycache__/
+
+config.json
+*.pem

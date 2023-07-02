@@ -1,46 +1,61 @@
 import json
-import requests
 import sys
 import os
 
-def getSSL(domain): #grab all the records so we know which ones to delete to make room for our record. Also checks to make sure we've got the right domain
-	allRecords=json.loads(requests.post(apiConfig["endpoint"] + '/ssl/retrieve/' + domain, data = json.dumps(apiConfig)).text)
-	if allRecords["status"]=="ERROR":
-		print('Error retrieving SSL.');
-		print(allRecords["message"]);
-		sys.exit();
-	return(allRecords)
+try:
+	from urllib.request import Request, urlopen
+	from urllib.error import HTTPError
+except ImportError:
+	from urllib2 import Request, urlopen, HTTPError
 
-if len(sys.argv)>1: #at least the config and root domain is specified
-	apiConfig = json.load(open(sys.argv[1])) #load the config file into a variable
-	rootDomain=apiConfig["domain"]
-	print("Downloading certs for " + rootDomain + "\n");
-	certJSON=getSSL(rootDomain)
 
-	f = open(apiConfig["domainCertLocation"], "w")
-	print("Installing " + apiConfig["domainCertLocation"])
-	f.write(certJSON["certificatechain"])
-	f.close()
+def get_certificates(config):
+	print('Downloading certs for ' + config['domain'])
+	url = '{}/ssl/retrieve/{}'.format(config['endpoint'], config['domain'])
+	headers = {'Content-Type': 'application/json'}
+	data = json.dumps({'apikey': config['apikey'], 'secretapikey': config['secretapikey']}).encode('utf-8')
+	try:
+		response = urlopen(Request(url, data=data, headers=headers))
+	except HTTPError as e:
+		print('HTTP error: {} {}'.format(e.code, e.read().decode('utf-8')))
+		sys.exit(1)
+	response_json = json.loads(response.read())
+	if response_json['status'] == 'ERROR':
+		print('Error retrieving SSL: ' + response_json['message'])
+		sys.exit(1)
+	return response_json
 
-	f = open(apiConfig["privateKeyLocation"], "w")
-	print("Installing " + apiConfig["privateKeyLocation"])
-	f.write(certJSON["privatekey"])
-	f.close()
 
-	f = open(apiConfig["publicKeyLocation"], "w")
-	print("Installing " + apiConfig["publicKeyLocation"])
-	f.write(certJSON["publickey"])
-	f.close()
+def write_file(path, contents):
+	if path:
+		with open(path, 'w') as f:
+			print('Installing ' + path)
+			f.write(contents)
 
-	f = open(apiConfig["intermediateCertLocation"], "w")
-	print("Installing " + apiConfig["intermediateCertLocation"])
-	f.write(certJSON["intermediatecertificate"])
-	f.close()
-	
-	print("\nExecuting system command:\n" + apiConfig["commandToReloadWebserver"] + "\n")
-		
-	commandOutput=os.popen(apiConfig["commandToReloadWebserver"]).read()		
-	print(commandOutput + "\n")	
-	
+
+if len(sys.argv) <= 1:
+	print(
+		'certbun, a simpler way to keep your web server\'s SSL certificates current.\n\n'
+		'Error: not enough arguments. Example:\n'
+		'python certbun.py /path/to/config.json\n\n'
+		'The config file contains your Porkbun API keys as well as the '
+		'domain in question, the location on your file system to copy '
+		'the keys, and the command to restart/reload the web server.'
+	)
 else:
-	print("certbun, a simpler way to keep your web server's SSL certificates current.\n\nError: not enough arguments. Example:\npython certbun.py /path/to/config.json \n\nThe config file contains your Porkbun API keys as well as the \ndomain in question, the location on your file system to copy\nthe keys, and the command to restart/reload the web server.\n")
+	with open(sys.argv[1]) as f:
+		config = json.load(f)
+
+	cert_json = get_certificates(config)
+	write_file(config['domainCertLocation'], cert_json['certificatechain'])
+	write_file(config['privateKeyLocation'], cert_json['privatekey'])
+	write_file(config.get('intermediateCertLocation'), cert_json['intermediatecertificate'])
+	write_file(config.get('publicKeyLocation'), cert_json['publickey'])
+
+	print('Done installing certificates.')
+
+	restart_command = config.get('commandToReloadWebserver')
+	if restart_command:
+		print('Reloading server...')
+		output = os.popen(restart_command).read()
+		print(output + '\n')
