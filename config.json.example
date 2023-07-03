@@ -1,11 +1,11 @@
 {
     "endpoint":"https://porkbun.com/api/json/v3",
-    "apikey": "",
-    "secretapikey": "",
-    "domain": "example.com",
-    "domainCertLocation": "/my/web/server/certs/folder/domain.cert.pem",
-    "privateKeyLocation": "/my/web/server/certs/folder/private.key.pem",
-    "intermediateCertLocation": "/my/web/server/certs/folder/intermediate.cert.pem",
-    "publicKeyLocation": "/my/web/server/certs/folder/public.key.pem",
+    "apikey": "YOUR_API_KEY",
+    "secretapikey": "YOUR_SECRET_API_KEY",
+    "domain": "YOUR_DOMAIN",
+    "domainCertLocation": "/etc/ssl/YOUR_DOMAIN.cert.pem",
+    "privateKeyLocation": "/etc/ssl/YOUR_DOMAIN.priv.key.pem",
+    "intermediateCertLocation": "/etc/ssl/YOUR_DOMAIN.intermediate.cert.pem",
+    "publicKeyLocation": "/etc/ssl/YOUR_DOMAIN.pub.key.pem",
     "commandToReloadWebserver": "/sbin/service nginx reload"
 }
